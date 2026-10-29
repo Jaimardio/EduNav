@@ -113,7 +113,7 @@ document.getElementById("btn-start").addEventListener("click", async () => {
         return;
     }
 
-    document.getElementById("btn-start").innerText = "Generowanie 50 pytań przez AI...";
+    document.getElementById("btn-start").innerText = "Generowanie 10 pytań przez AI...";
 
     try {
         const initRes = await fetch("http://127.0.0.1:5000/api/inicjalizuj-temat", {
@@ -121,7 +121,7 @@ document.getElementById("btn-start").addEventListener("click", async () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 temat: playerTemat,
-                ilosc: 50
+                ilosc: 10
             })
         });
         const initData = await initRes.json();

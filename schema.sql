@@ -56,9 +56,9 @@ GO
 CREATE TABLE HistoriaOdpowiedziGracza (
     ID INT IDENTITY(1,1) PRIMARY KEY,
     Email NVARCHAR(100) NOT NULL,
-    Temat NVARCHAR(50) NOT NULL,         
+    Temat NVARCHAR(50) NOT NULL,          
     Pytanie NVARCHAR(MAX) NOT NULL,      
-    CzyPoprawnie BIT NOT NULL,           
+    CzyPoprawnie BIT NOT NULL,            
     DataOdpowiedzi DATETIME DEFAULT GETDATE()
 );
 GO
@@ -72,13 +72,13 @@ CREATE VIEW WidokPostepuGracza AS
 SELECT 
     h.Email,
     h.Temat,
-    ISNULL(d.CalkowitaLiczbaSlowek, 100) AS CalkowityCelKursu,
+    ISNULL(d.CalkowitaLiczbaSlowek, 10) AS CalkowityCelKursu,
     COUNT(DISTINCT CASE WHEN h.CzyPoprawnie = 1 THEN h.Pytanie END) AS LiczbaOpanowanychUnikalnych,
     COUNT(h.ID) AS LiczbaWszystkichProb,
     SUM(CASE WHEN h.CzyPoprawnie = 0 THEN 1 ELSE 0 END) AS LiczbaBledow,
     CAST(
         (CAST(COUNT(DISTINCT CASE WHEN h.CzyPoprawnie = 1 THEN h.Pytanie END) AS FLOAT) / 
-        ISNULL(NULLIF(d.CalkowitaLiczbaSlowek, 0), 100)) * 100 
+        ISNULL(NULLIF(d.CalkowitaLiczbaSlowek, 0), 10)) * 100 
     AS DECIMAL(5,2)) AS ProcentOgólnyMateriału
 FROM HistoriaOdpowiedziGracza h
 LEFT JOIN DefinicjeTematow d ON h.Temat = d.Temat
@@ -102,4 +102,64 @@ BEGIN
     
     PRINT 'Pomyślnie zseedowano bazę pytaniami dla tematu historia ziemi!';
 END
+GO
+
+-- 8. Trigger: Automatyczne dodawanie nowego tematu do DefinicjeTematow przy wstawianiu pytań
+IF OBJECT_ID('trg_AutomatycznyTemat', 'TR') IS NOT NULL
+    DROP TRIGGER trg_AutomatycznyTemat;
+GO
+
+CREATE TRIGGER trg_AutomatycznyTemat
+ON PytaniaGlobalne
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Automatycznie uzupełnia brakujący temat z domyślnym celem równym 10
+    INSERT INTO DefinicjeTematow (Temat, CalkowitaLiczbaSlowek)
+    SELECT DISTINCT i.Temat, 10
+    FROM inserted i
+    WHERE NOT EXISTS (
+        SELECT 1 FROM DefinicjeTematow d WHERE d.Temat = i.Temat
+    );
+END;
+GO
+
+-- 9. Procedura składowana z jawną transakcją: Bezpieczny reset postępu gracza
+IF OBJECT_ID('sp_ResetujPostepGracza', 'P') IS NOT NULL
+    DROP PROCEDURE sp_ResetujPostepGracza;
+GO
+
+CREATE PROCEDURE sp_ResetujPostepGracza
+    @Email NVARCHAR(150),
+    @Temat NVARCHAR(50)
+AS
+BEGIN
+    SET XACT_ABORT ON;
+    
+    BEGIN TRANSACTION;
+
+    BEGIN TRY
+        -- Krok 1: Usunięcie postępu z tabeli głównej (webowej)
+        DELETE gp 
+        FROM GraczPostep gp
+        JOIN PytaniaGlobalne pg ON gp.PytanieId = pg.Id
+        WHERE gp.Email = @Email AND LOWER(pg.Temat) = LOWER(@Temat);
+
+        -- Krok 2: Usunięcie historii z tabeli trybu konsolowego (Dżina)
+        DELETE FROM HistoriaOdpowiedziGracza 
+        WHERE Email = @Email AND LOWER(Temat) = LOWER(@Temat);
+
+        COMMIT TRANSACTION;
+        PRINT 'Transakcja zakończona sukcesem: Postęp gracza został zresetowany.';
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+            
+        DECLARE @ErrorMessage NVARCHAR(MAX) = ERROR_MESSAGE();
+        RAISERROR (@ErrorMessage, 16, 1);
+    END CATCH
+END;
 GO

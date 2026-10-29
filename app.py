@@ -48,12 +48,12 @@ def pobierz_tematy():
         return jsonify({"tematy": [], "blad": str(e)})
 
 
-# 2. Inicjalizacja tematu i pobieranie pytań (domyślnie 50 na start)
+# 2. Inicjalizacja tematu i pobieranie pytań (domyślnie 10 na start)
 @app.route("/api/inicjalizuj-temat", methods=["POST"])
 def inicjalizuj_temat():
     dane = request.json
     temat = dane.get("temat", "").strip().lower()
-    ilosc_pytan = int(dane.get("ilosc", 50))
+    ilosc_pytan = int(dane.get("ilosc", 10))
 
     if not temat:
         return jsonify({"blad": "Brak tematu"}), 400
@@ -87,7 +87,7 @@ Zwróć WYŁĄCZNIE czysty JSON w postaci tablicy obiektów o strukturze:
 
             try:
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash", contents=prompt
+                    model="gemini-3.8-flash", contents=prompt
                 )
                 
                 # Bezpieczniejsze czyszczenie odpowiedzi z markdownu
@@ -155,7 +155,7 @@ def pobierz_pytanie():
 
         # Jeśli gracz odpowiedział już na wszystko, dociągamy nowe pytania przez AI
         if not row and client:
-            prompt = f"""Wygeneruj kolejny pakiet 30 unikalnych pytań testowych na temat: '{temat}'.
+            prompt = f"""Wygeneruj kolejny pakiet 10 unikalnych pytań testowych na temat: '{temat}'.
 Zwróć WYŁĄCZNIE czysty JSON w postaci tablicy obiektów o strukturze:
 [
   {{
@@ -167,7 +167,7 @@ Zwróć WYŁĄCZNIE czysty JSON w postaci tablicy obiektów o strukturze:
 ]"""
             try:
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash", contents=prompt
+                    model="gemini-3.8-flash", contents=prompt
                 )
                 tekst_odpowiedzi = response.text.strip()
                 if "```json" in tekst_odpowiedzi:
