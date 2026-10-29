@@ -1,0 +1,11 @@
+# Środowisko wirtualne i python
+venv/
+__pycache__/
+*.pyc
+
+# Konfiguracja środowiskowa (Klucze API!)
+.env
+
+# Pliki kopii zapasowych bazy
+backup/
+*.baks
